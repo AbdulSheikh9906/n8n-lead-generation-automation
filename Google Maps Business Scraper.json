@@ -1,0 +1,294 @@
+{
+  "name": "Google Maps Business Scraper",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Try It Out!\n### This n8n template automates lead generation by scraping Google Maps for local businesses and notifying you in real-time.\n\n### How it works\n* The workflow is triggered **manually**. You can replace this with a **Cron** node to run searches on a schedule.\n* A **BrowserAct** node starts a scraping task on Google Maps with your specified inputs (e.g., 'Baby Care' in 'Brooklyn').\n* A second **BrowserAct** node waits for the scraping job to finish completely.\n* A **Code** node intelligently parses the raw scraped data, splitting the list of businesses into individual items for processing.\n* The structured leads are then saved to a **Google Sheet**, automatically avoiding duplicates.\n* Finally, a **Telegram** message is sent for each new lead, providing instant notification.\n\n### Requirements\n* **BrowserAct** API account for web scraping.\n* **Google Sheets** credentials for saving leads.\n* **Telegram** credentials for sending notifications.\n* Using BrowserAct template **“Google Maps Local Lead Finder”** in your BrowserAct account.\n\n### Need Help?\nJoin the [Discord](https://discord.com/invite/UpnCKd7GaU) or Visit Our [Blog](https://www.browseract.com/blog)!\n",
+        "height": 450,
+        "width": 592
+      },
+      "id": "4fb9773c-ea75-4398-8815-2b5d9db7b965",
+      "name": "Sticky Note - Intro",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -480,
+        192
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## How to use\n\n1.  **Set up Credentials:** Add your credentials for **BrowserAct**, **Google Sheets**, and **Telegram** to the workflow.\n2.  **Set up BrowserAct Template:** Ensure you have the **“Google Maps Local Lead Finder”** template set up in your BrowserAct account.\n3.  **Customize Your Search:** In the **Run a workflow task** node, change the `Location`, `Bussines_Category`, and `Extracted_Data` values to find the leads you need.\n4.  **Activate Workflow:** Manually trigger the workflow by clicking 'Execute Workflow' to test. For automation, replace the trigger with a `Cron` node and activate the workflow.",
+        "height": 192,
+        "width": 592
+      },
+      "id": "70d554d1-2a30-4540-802c-f7a43054450a",
+      "name": "Sticky Note - How to Use",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -480,
+        656
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/compass~crawler-google-places/run-sync-get-dataset-items?token=YOUR_APIFY_API_TOKEN",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"includeWebResults\": false,\n    \"language\": \"en\",\n    \"locationQuery\": \"{{ $json.City }},{{ $json.Country }} \",\n    \"maxCrawledPlacesPerSearch\": 25,\n    \"maxImages\": 0,\n    \"maximumLeadsEnrichmentRecords\": 0,\n    \"scrapeContacts\": true,\n    \"scrapeDirectories\": false,\n    \"scrapeImageAuthors\": false,\n    \"scrapePlaceDetailPage\": false,\n    \"scrapeReviewsPersonalData\": true,\n    \"scrapeTableReservationProvider\": false,\n    \"searchStringsArray\": [\n        \"{{ $json['Search Query'] }}\"\n    ],\n    \"skipClosedPlaces\": false,\n    \"website\": \"withWebsite\"\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        768
+      ],
+      "id": "4f1328bb-1985-4cdf-857c-78449740a3f4",
+      "name": "Call APIFY Actor"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ddb43b31-a96f-4415-8ad3-373a12271ba0",
+              "leftValue": "={{ $json.emails }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        1104,
+        768
+      ],
+      "id": "14305a00-87be-45c8-8b59-e120a0460abc",
+      "name": "Filter Entries With Emails"
+    },
+    {
+      "parameters": {
+        "binaryPropertyName": "contacts",
+        "options": {
+          "delimiter": ",",
+          "fileName": "contacts.csv",
+          "headerRow": true
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1520,
+        768
+      ],
+      "id": "df7295de-eb72-438b-adca-ff0d8e90353d",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "formTitle": "Google Maps Scraper",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Search Query",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "City",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Country",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Your Email"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        656,
+        768
+      ],
+      "id": "aa605869-5799-428a-a1e7-9513bfed25cd",
+      "name": "On form submission",
+      "webhookId": "80bf0fd5-2859-4d37-85aa-3877d7f72c02"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $node['On form submission'].json['Your Email'] }}",
+        "subject": "Your Google Maps Leads Are Here",
+        "message": "Please find the attached leads",
+        "options": {
+          "appendAttribution": false,
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {
+                "property": "contacts"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1776,
+        768
+      ],
+      "id": "301083d1-0cd0-4bcb-87f4-00c79f8e2f42",
+      "name": "Gmail",
+      "webhookId": "d3321ffd-dc1f-4c85-9d93-d3e070d4b17e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "5BAJ9Bbir2BevMDZ",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d90e9541-95e7-4995-afa7-ec7cdfd88987",
+              "name": "Business Name",
+              "value": "={{ $json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "1dbe85d2-798a-461d-9b5d-59aed4e519f3",
+              "name": "Email",
+              "value": "={{ $json.emails[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "de36a6ad-d6ec-4e13-83d3-6228c4ebde7b",
+              "name": "Website",
+              "value": "={{ $json.website }}",
+              "type": "string"
+            },
+            {
+              "id": "884c9d1f-e5e8-4128-938d-dd82a62e866e",
+              "name": "Phone",
+              "value": "={{ $json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "8429bbfc-58d1-403c-aa3f-ab610f31dee2",
+              "name": "Google Rating",
+              "value": "={{ $json.totalScore }}",
+              "type": "string"
+            },
+            {
+              "id": "ea8c5e48-aed3-469a-a89e-39c55a124c40",
+              "name": "Review Count",
+              "value": "={{ $json.reviewsCount }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1312,
+        768
+      ],
+      "id": "83aff615-ad1b-40d3-b33c-472d9a2400c0",
+      "name": "Edit Fields"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Call APIFY Actor": {
+      "main": [
+        [
+          {
+            "node": "Filter Entries With Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Entries With Emails": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Call APIFY Actor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "01749f1d-9ede-4b2f-b48b-b76c441153a9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d2e4ce7e695a8ec7268457900d2e31011a8bbac769807a0cbc72f6fe0466f387"
+  },
+  "id": "d1Z4Hu7UL5Ub1PiA",
+  "tags": []
+}
